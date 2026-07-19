@@ -1,0 +1,43 @@
+# Conjur policy for the GitHub Actions -> Conjur authn-jwt demo (Lab-32).
+# Load as admin:  conjur policy load -b root -f conjur/policy.yml
+# Then set the authenticator variables + secret with conjur/bootstrap.sh.
+
+# 1) JWT authenticator for GitHub Actions OIDC ------------------------------
+- !policy
+  id: conjur/authn-jwt/github
+  body:
+    - !webservice
+
+    # GitHub's OIDC provider metadata (set by bootstrap.sh)
+    - !variable jwks-uri            # https://token.actions.githubusercontent.com/.well-known/jwks
+    - !variable issuer             # https://token.actions.githubusercontent.com
+    - !variable token-app-property # which JWT claim maps to a Conjur host, e.g. "repository"
+
+    # roles allowed to authenticate through this service
+    - !group consumers
+    - !permit
+      role: !group consumers
+      privilege: [ read, authenticate ]
+      resource: !webservice
+
+# 2) the workload identity for this repo + the secret it may read -----------
+- !policy
+  id: github
+  body:
+    - !host
+      id: myorg/myrepo                     # must match the mapped JWT claim
+      annotations:
+        authn-jwt/github/repository: myorg/myrepo   # claim -> host mapping
+
+    - &db-vars
+      - !variable db/password
+
+    - !permit
+      role: !host myorg/myrepo
+      privilege: [ read, execute ]
+      resource: !variable db/password
+
+# 3) let the repo host authenticate via the github JWT service --------------
+- !grant
+  role: !group conjur/authn-jwt/github/consumers
+  member: !host github/myorg/myrepo

@@ -1,0 +1,28 @@
+# Local Conjur OSS for testing Lab-32 (ties to PJ15 Conjur).
+# 1) key:   export CONJUR_DATA_KEY="$(docker run --rm cyberark/conjur data-key generate)"
+# 2) up:    docker compose -f docker-compose.conjur.yml up -d
+# 3) admin: docker compose -f docker-compose.conjur.yml exec conjur conjurctl account create myorg
+#           (capture the admin API key it prints)
+services:
+  database:
+    image: postgres:15
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  conjur:
+    image: cyberark/conjur:latest
+    command: server
+    environment:
+      DATABASE_URL: postgres://postgres@database/postgres
+      CONJUR_DATA_KEY: ${CONJUR_DATA_KEY}
+      # enable the default + the github JWT authenticator used by the workflow
+      CONJUR_AUTHENTICATORS: "authn,authn-jwt/github"
+    ports:
+      - "8080:80"
+    depends_on:
+      - database
+
+volumes:
+  pgdata:

@@ -1,0 +1,8 @@
+# never commit secrets, tokens, or local env
+.env
+*.env
+*.key
+*.pem
+conjur.pem
+access_token*
+__pycache__/
